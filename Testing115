@@ -1,0 +1,966 @@
+local old = game:GetService("CoreGui"):FindFirstChild("SmoothScriptUI") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SmoothScriptUI")
+if old then old:Destroy() end
+
+-- ==========================================
+-- CUSTOM TORA AUTOMATION CONFIGURATION
+-- ==========================================
+-- Change these global variables anytime to inject your own automation name and display logic.
+getgenv().CustomToraAutomation = {
+    Enabled = true,                     -- Set to true to override the GitHub name layout
+    Name = "My Custom Tora Multi-Bot",  -- Your custom name that shows up on the UI banner
+}
+
+local SG = Instance.new("ScreenGui") SG.Name = "SmoothScriptUI" SG.ResetOnSpawn = false
+local success, err = pcall(function() SG.Parent = game:GetService("CoreGui") end)
+if not success then SG.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") end
+
+local P, UIS, RS, LP = game:GetService("Players"), game:GetService("UserInputService"), game:GetService("RunService"), game:GetService("Players").LocalPlayer
+local flyS, flying, infJ, noclip, fcam, zoom, flingEnabled, conns, inputMode, tabs, uiReg = 50, false, false, false, false, false, false, {}, "CYCLE", {}, {}
+local espEnabled, tpToolEnabled, espBoxes, specPlayer, sitConn, sLockEnabled = false, false, {}, nil, nil, false
+local aimEnabled, aimSmooth, strongLock, wallCheck, aimBone, excludedPlayers = false, 10, false, false, "Head", {}
+
+local function getH() return LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") end
+local function getR() return LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") end
+
+-- Balanced Lighting Blue Theme
+local BG_C   = Color3.fromRGB(12, 18, 34)   
+local SB_C   = Color3.fromRGB(18, 26, 48)   
+local T_ACT  = Color3.fromRGB(0, 110, 255)  
+local BT_C   = Color3.fromRGB(24, 36, 66)   
+local TX_C   = Color3.fromRGB(255, 255, 255) 
+local NUM_C  = Color3.fromRGB(150, 210, 255) 
+local GLOW_C = Color3.fromRGB(0, 150, 255)  
+
+local MF = Instance.new("Frame", SG) MF.Size, MF.Position, MF.BackgroundColor3, MF.Active, MF.Selectable = UDim2.new(0,450,0,300), UDim2.new(0.5,-225,0.5,-150), BG_C, true, true
+Instance.new("UICorner", MF).CornerRadius = UDim.new(0,10)
+
+local US = Instance.new("UIStroke", MF) US.Color, US.Thickness = GLOW_C, 1.8
+
+local drag, dInp, dStart, sPos
+MF.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag, dStart, sPos = true, i.Position, MF.Position i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then drag = false end end) end end)
+MF.InputChanged:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then dInp = i end end)
+UIS.InputChanged:Connect(function(i) if i == dInp and drag then local d = i.Position - dStart MF.Position = UDim2.new(sPos.X.Scale, sPos.X.Offset + d.X, sPos.Y.Scale, sPos.Y.Offset + d.Y) end end)
+
+local TB = Instance.new("Frame", MF) TB.Size, TB.BackgroundTransparency = UDim2.new(1,0,0,35), 1
+local Icon = Instance.new("TextLabel", TB) Icon.Size, Icon.Position, Icon.Text, Icon.TextSize, Icon.BackgroundTransparency, Icon.TextColor3, Icon.TextXAlignment = UDim2.new(0,35,1,0), UDim2.new(0,12,0,0), "⚡", 16, 1, GLOW_C, Enum.TextXAlignment.Left
+local Hide = Instance.new("TextButton", TB) Hide.Size, Hide.Position, Hide.Text, Hide.TextColor3, Hide.Font, Hide.TextSize, Hide.BackgroundTransparency, Hide.TextXAlignment = UDim2.new(0,70,1,0), UDim2.new(1,-80,0,0), "Hide UI", TX_C, Enum.Font.SourceSansBold, 14, 1, Enum.TextXAlignment.Right
+local MB = Instance.new("TextButton", SG) MB.Size, MB.Position, MB.BackgroundColor3, MB.Text, MB.TextColor3, MB.Font, MB.TextSize, MB.Visible = UDim2.new(0,50,0,50), UDim2.new(0,20,0,20), SB_C, "Menu", GLOW_C, Enum.Font.SourceSansBold, 14, false
+Instance.new("UICorner", MB).CornerRadius = UDim.new(1,0)
+local MBS = Instance.new("UIStroke", MB) MBS.Color, MBS.Thickness = GLOW_C, 1.5
+
+Hide.Activated:Connect(function() MF.Visible, MB.Visible = false, true end)
+MB.Activated:Connect(function() MF.Visible, MB.Visible = true, false end)
+
+local SB = Instance.new("Frame", MF) SB.Size, SB.Position, SB.BackgroundColor3 = UDim2.new(0,110,1,-35), UDim2.new(0,0,0,35), SB_C
+Instance.new("UICorner", SB).CornerRadius = UDim.new(0,10)
+local SBL = Instance.new("UIListLayout", SB) SBL.Padding, SBL.HorizontalAlignment = UDim.new(0,2), Enum.HorizontalAlignment.Center
+local MV = Instance.new("Frame", MF) MV.Size, MV.Position, MV.BackgroundTransparency = UDim2.new(1,-125,1,-45), UDim2.new(0,118,0,38), 1
+
+local function subTab(name, icon)
+	local b = Instance.new("TextButton", SB) b.Size, b.BackgroundTransparency, b.Text, b.TextColor3, b.Font, b.TextSize, b.TextXAlignment = UDim2.new(0.9,0,0,24), 1, " " .. icon .. " " .. name, TX_C, Enum.Font.SourceSansBold, 11, Enum.TextXAlignment.Left
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0,5)
+	local sf = Instance.new("ScrollingFrame", MV) sf.Size, sf.BackgroundTransparency, sf.ScrollBarThickness, sf.ScrollBarImageColor3, sf.Visible = UDim2.new(1,0,1,0), 1, 3, GLOW_C, false
+	local ll = Instance.new("UIListLayout", sf) ll.Padding = UDim.new(0,5)
+	ll:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() sf.CanvasSize = UDim2.new(0,0,0,ll.AbsoluteContentSize.Y+10) end)
+	b.Activated:Connect(function() for _, t in pairs(tabs) do t.b.BackgroundTransparency, t.p.Visible = 1, false end b.BackgroundTransparency, b.BackgroundColor3, sf.Visible = 0, T_ACT, true end)
+	tabs[name] = {b = b, p = sf} return sf
+end
+
+local homeTab = subTab("Home","🏠")
+local scriptsTab = subTab("Scripts","📜")
+local animTab = subTab("Animation tab", "🛠️")
+local toraTab = subTab("Tora Tabs","🌀")
+local haxTab = subTab("Main Hax","⚡")
+local trollTab = subTab("Troll Menu","🤡")
+local tpTab = subTab("Teleport","📍")
+local aimTab = subTab("Aimbot","🎯")
+local infYieldTab = subTab("Inf Yield","♾️")
+local coolTrollTab = subTab("Cool Troll","🔥")
+
+tabs["Home"].b.BackgroundTransparency, tabs["Home"].b.BackgroundColor3, tabs["Home"].p.Visible = 0, T_ACT, true
+
+local function rowBtn(txt, p, cb)
+	local b = Instance.new("TextButton", p)
+	b.Size, b.BackgroundColor3, b.Text, b.TextColor3, b.Font, b.TextSize, b.TextXAlignment =
+		UDim2.new(1,-4,0,38), BT_C, "  "..txt, TX_C, Enum.Font.SourceSansBold, 14, Enum.TextXAlignment.Left
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0,6)
+	b.Activated:Connect(function() cb(b) end)
+	return b
+end
+
+local function toggleRow(txt, p, cb)
+	local base = Instance.new("TextButton", p)
+	base.Size, base.BackgroundColor3, base.Text, base.AutoButtonColor =
+		UDim2.new(1,-4,0,38), BT_C, "", false
+	Instance.new("UICorner", base).CornerRadius = UDim.new(0,6)
+	local lbl = Instance.new("TextLabel", base)
+	lbl.Size, lbl.Position, lbl.Text, lbl.TextColor3, lbl.Font, lbl.TextSize, lbl.TextXAlignment, lbl.BackgroundTransparency =
+		UDim2.new(0.75,0,1,0), UDim2.new(0,12,0,0), txt, TX_C, Enum.Font.SourceSansBold, 13, Enum.TextXAlignment.Left, 1
+	local track = Instance.new("Frame", base)
+	track.Size, track.Position, track.BackgroundColor3 = UDim2.new(0,40,0,22), UDim2.new(1,-50,0,8), Color3.fromRGB(40, 52, 84)
+	Instance.new("UICorner", track).CornerRadius = UDim.new(1,0)
+	local knob = Instance.new("Frame", track)
+	knob.Size, knob.Position, knob.BackgroundColor3 = UDim2.new(0,16,0,16), UDim2.new(0,3,0,3), Color3.new(1,1,1)
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
+	local state = false
+	base.Activated:Connect(function()
+		state = not state
+		knob:TweenPosition(state and UDim2.new(1,-19,0,3) or UDim2.new(0,3,0,3), "Out", "Quad", 0.15, true)
+		track.BackgroundColor3 = state and T_ACT or Color3.fromRGB(40, 52, 84)
+		cb(state)
+	end)
+end
+
+local function toggleValueRow(txt, p, defaultVal, onToggle, onValue)
+	local base = Instance.new("TextButton", p)
+	base.Size, base.BackgroundColor3, base.Text, base.AutoButtonColor =
+		UDim2.new(1,-4,0,38), BT_C, "", false
+	Instance.new("UICorner", base).CornerRadius = UDim.new(0,6)
+
+	local lbl = Instance.new("TextLabel", base)
+	lbl.Size, lbl.Position, lbl.Text, lbl.TextColor3, lbl.Font, lbl.TextSize, lbl.TextXAlignment, lbl.BackgroundTransparency =
+		UDim2.new(0.45,0,1,0), UDim2.new(0,12,0,0), txt, TX_C, Enum.Font.SourceSansBold, 12, Enum.TextXAlignment.Left, 1
+
+	local inp = Instance.new("TextBox", base)
+	inp.Size, inp.Position, inp.BackgroundColor3, inp.TextColor3, inp.Font, inp.TextSize, inp.Text, inp.PlaceholderText =
+		UDim2.new(0,52,0,24), UDim2.new(0.45,0,0,7), BG_C, NUM_C, Enum.Font.SourceSansBold, 12, tostring(defaultVal), "val"
+	Instance.new("UICorner", inp).CornerRadius = UDim.new(0,4)
+	
+	inp.FocusLost:Connect(function()
+		local num = tonumber(inp.Text)
+		if num then onValue(num) else inp.Text = tostring(defaultVal) end
+	end)
+
+	local track = Instance.new("Frame", base)
+	track.Size, track.Position, track.BackgroundColor3 = UDim2.new(0,40,0,22), UDim2.new(1,-50,0,8), Color3.fromRGB(40, 52, 84)
+	Instance.new("UICorner", track).CornerRadius = UDim.new(1,0)
+	local knob = Instance.new("Frame", track)
+	knob.Size, knob.Position, knob.BackgroundColor3 = UDim2.new(0,16,0,16), UDim2.new(0,3,0,3), Color3.new(1,1,1)
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
+
+	local state = false
+	base.Activated:Connect(function()
+		state = not state
+		knob:TweenPosition(state and UDim2.new(1,-19,0,3) or UDim2.new(0,3,0,3), "Out", "Quad", 0.15, true)
+		track.BackgroundColor3 = state and T_ACT or Color3.fromRGB(40, 52, 84)
+		onToggle(state)
+	end)
+end
+
+local function adaptCtrl(lbl, cVals, dfVal, p, cb)
+	local cur = dfVal
+	local f = Instance.new("Frame", p)
+	f.Size, f.BackgroundColor3 = UDim2.new(1,-4,0,38), BT_C
+	Instance.new("UICorner", f).CornerRadius = UDim.new(0,6)
+	local cbn = Instance.new("TextButton", f)
+	cbn.Size, cbn.BackgroundTransparency, cbn.TextColor3, cbn.Font, cbn.TextSize, cbn.TextXAlignment =
+		UDim2.new(1,0,1,0), 1, TX_C, Enum.Font.SourceSansBold, 14, Enum.TextXAlignment.Left
+	cbn.Text = "  " .. lbl .. ": " .. tostring(cur)
+	local inp = Instance.new("TextBox", f)
+	inp.Size, inp.Position, inp.BackgroundColor3, inp.TextColor3, inp.Font, inp.TextSize, inp.Text, inp.Visible =
+		UDim2.new(0,60,0,24), UDim2.new(1,-68,0,7), BG_C, NUM_C, Enum.Font.SourceSansBold, 13, tostring(dfVal), false
+	Instance.new("UICorner", inp).CornerRadius = UDim.new(0,4)
+	
+	cbn.Activated:Connect(function()
+		if inputMode == "CYCLE" then
+			local n = 1
+			for i, v in ipairs(cVals) do if v == cur then n = i + 1 break end end
+			if n > #cVals then n = 1 end
+			cur = cVals[n] cb(cur)
+			cbn.Text = "  " .. lbl .. ": " .. tostring(cur)
+		end
+	end)
+	inp.FocusLost:Connect(function()
+		local num = tonumber(inp.Text)
+		if num then cur = num cb(num) else inp.Text = tostring(cur) end
+	end)
+	table.insert(uiReg, function()
+		if inputMode == "CYCLE" then
+			cbn.Text, cbn.TextXAlignment, inp.Visible = "  " .. lbl .. ": " .. tostring(cur), Enum.TextXAlignment.Left, false
+		else
+			cbn.Text, cbn.TextXAlignment, inp.Visible = "  " .. lbl .. ":", Enum.TextXAlignment.Left, true
+			inp.Text = tostring(cur)
+		end
+	end)
+end
+
+local function makeDropdown(txt, p, cb)
+	local f = Instance.new("Frame", p) f.Size, f.BackgroundColor3 = UDim2.new(1,-4,0,38), BT_C Instance.new("UICorner", f).CornerRadius = UDim.new(0,6)
+	local btn = Instance.new("TextButton", f) btn.Size, btn.BackgroundTransparency, btn.Text, btn.TextColor3, btn.Font, btn.TextSize, btn.TextXAlignment = UDim2.new(1,0,1,0), 1, "  " .. txt, TX_C, Enum.Font.SourceSansBold, 14, Enum.TextXAlignment.Left
+	local listF = Instance.new("Frame", p) listF.Size, listF.BackgroundColor3, listF.Visible = UDim2.new(1,-4,0,100), BG_C, false Instance.new("UICorner", listF).CornerRadius = UDim.new(0,6)
+	local sf = Instance.new("ScrollingFrame", listF) sf.Size, sf.BackgroundTransparency, sf.ScrollBarThickness = UDim2.new(1,0,1,0), 1, 2
+	local ll = Instance.new("UIListLayout", sf) ll.Padding = UDim.new(0,2)
+	btn.Activated:Connect(function() listF.Visible = not listF.Visible if listF.Visible then for _, item in pairs(sf:GetChildren()) do if item:IsA("TextButton") then item:Destroy() end end for _, pl in pairs(P:GetPlayers()) do if pl ~= LP then local b = Instance.new("TextButton", sf) b.Size, b.BackgroundColor3, b.Text, b.TextColor3, b.Font, b.TextSize = UDim2.new(1,-2,0,25), BT_C, pl.Name, TX_C, Enum.Font.SourceSans, 12 b.Activated:Connect(function() listF.Visible = false cb(pl) end) end end end end)
+end
+
+-- HOME TAB
+adaptCtrl("WalkSpeed", {16,90,220}, 16, homeTab, function(v) if getH() then getH().WalkSpeed = v end end)
+adaptCtrl("JumpPower", {50,140,260}, 50, homeTab, function(v) if getH() then getH().JumpPower = v end end)
+adaptCtrl("Fly Speed", {50,120,280}, 50, homeTab, function(v) flyS = v end)
+adaptCtrl("Gravity", {196,100,50,0}, 196, homeTab, function(v) workspace.Gravity = v end)
+rowBtn("🎛️ Input Mode: CYCLE", homeTab, function(b) inputMode = (inputMode == "CYCLE") and "NUMBER" or "CYCLE" b.Text = "  🎛️ Input Mode: " .. inputMode for _, f in pairs(uiReg) do f() end end)
+rowBtn("🛑 Shut Down Smooth Script", homeTab, function()
+	flying, noclip, fcam, infJ, zoom, flingEnabled, espEnabled, tpToolEnabled, sLockEnabled, aimEnabled = false, false, false, false, false, false, false, false, false, false
+	if sitConn then sitConn:Disconnect() end
+	if workspace.CurrentCamera then workspace.CurrentCamera.CameraSubject = getH() end
+	for _, c in pairs(conns) do if c then c:Disconnect() end end
+	for _, b in pairs(espBoxes) do if b then b:Destroy() end end
+	
+	for _, pl in pairs(P:GetPlayers()) do
+		if pl.Character then
+			for _, child in pairs(pl.Character:GetDescendants()) do
+				if child:IsA("BoxHandleAdornment") and child.Name == "SmoothScriptESP" then
+					pcall(function() child:Destroy() end)
+				end
+			end
+		end
+	end
+
+	pcall(function() workspace.CurrentCamera.CameraType = Enum.CameraType.Custom if getH() then getH().WalkSpeed, getH().JumpPower = 16, 50 end LP.MaxCameraZoomDistance = 400 workspace.Gravity = 196.2 UIS.MouseBehavior = Enum.MouseBehavior.Default end)
+	SG:Destroy()
+end).BackgroundColor3 = Color3.fromRGB(160,55,65)
+
+-- Double Click Script Clearer Button
+local lastClick = 0
+local clearBtn = rowBtn("🧹 Clear Other Scripts (Double Click)", homeTab, function(b)
+    local currentTick = tick()
+    if currentTick - lastClick < 0.4 then 
+        b.Text = "  ⚠️ Clearing scripts..."
+        b.BackgroundColor3 = Color3.fromRGB(200, 140, 20)
+        
+        task.spawn(function()
+            local targetStorage = game:GetService("CoreGui")
+            if not pcall(function() local _ = targetStorage.Name end) then
+                targetStorage = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+            end
+            
+            for _, gui in ipairs(targetStorage:GetChildren()) do
+                if gui:IsA("ScreenGui") and gui.Name ~= "SmoothScriptUI" then
+                    pcall(function() gui:Destroy() end)
+                end
+            end
+            
+            for key, _ in pairs(getgenv()) do
+                if key ~= "HybridSettings" and key ~= "CustomToraAutomation" then
+                    pcall(function() getgenv()[key] = nil end)
+                end
+            end
+            
+            task.wait(0.5)
+            b.Text = "  ✅ Cleared Other Scripts!"
+            b.BackgroundColor3 = Color3.fromRGB(34, 139, 34)
+            task.wait(2)
+            b.Text = "  🧹 Clear Other Scripts (Double Click)"
+            b.BackgroundColor3 = Color3.fromRGB(24, 36, 66) 
+        end)
+    else
+        b.Text = "  🖱️ Double Click to Confirm!"
+        task.spawn(function()
+            task.wait(1.5)
+            if tick() - lastClick >= 1.5 then
+                b.Text = "  🧹 Clear Other Scripts (Double Click)"
+            end
+        end)
+    end
+    lastClick = currentTick
+end)
+clearBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 85)
+
+-- SCRIPTS TAB
+rowBtn("🚀 Fly Script Engine", scriptsTab, function()
+	pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))() end)
+end)
+rowBtn("🏎️ Speed Hub X", scriptsTab, function()
+	pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))() end)
+end)
+rowBtn("🎟️ Free Gamepass", scriptsTab, function()
+	pcall(function() loadstring(game:HttpGet("https://pastefy.app/89rJrjsC/raw"))() end)
+end)
+rowBtn("⚔️ Rivals", scriptsTab, function()
+	pcall(function() loadstring(game:HttpGet("https://pastefy.app/YiGY38uo/raw"))() end)
+end)
+rowBtn("🌊 100 Days at sea (Key: GoombaIsLeaving)", scriptsTab, function()
+	pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Notzephyr/UIX/refs/heads/main/100DaysAtSea.lua"))() end)
+end)
+rowBtn("🌱 Grow a Garden 2", scriptsTab, function()
+	pcall(function() loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/e8580ba6e94aeaa7aa2486f060167f85.lua"))() end)
+end)
+rowBtn("🥧 Bake or Die", scriptsTab, function()
+	pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Bake-or-Die-INFINITE-NUGGETS-AND-CASH-USE-BEFORE-ITS-PATCHED-AND-MORE-224716"))() end)
+end)
+
+-- ==========================================
+-- HYBRID BUNDLE ANIMATION SYSTEM
+-- ==========================================
+local animList = {"Ninja", "Robot", "Default", "Rthro", "Levitate", "Mage", "Stylish", "Hero", "Toy", "Astronaut", "Bubbly", "Cartoony", "Elder", "Ghost", "Knight", "Vampire", "Werewolf", "Zombie", "Bold", "Adidas", "Catwalk", "Walmart", "Wicked", "NFL", "Pirate", "Adidas2", "Oldschool", "Unboxed", "Aura", "Wicked2", "Ud", "Toilet", "Gm"}
+
+getgenv().HybridSettings = {
+    run = "Vampire", walk = "Vampire", jump = "Wicked", idle1 = "Vampire", 
+    idle2 = "Vampire", fall = "Ninja", climb = "Adidas2", swim = "Adidas2", swimidle = "Adidas2"
+}
+
+local actionButtons = {}
+local currentEditingAction = nil
+
+local selectionPanel = Instance.new("Frame", animTab)
+selectionPanel.Size, selectionPanel.BackgroundColor3, selectionPanel.Visible = UDim2.new(1,-4,0,140), SB_C, false
+Instance.new("UICorner", selectionPanel).CornerRadius = UDim.new(0,6)
+
+local selectionScroller = Instance.new("ScrollingFrame", selectionPanel)
+selectionScroller.Size, selectionScroller.BackgroundTransparency, selectionScroller.ScrollBarThickness = UDim2.new(1,-8,1,-8), 1, 4
+selectionScroller.Position = UDim2.new(0,4,0,4)
+local selectionLayout = Instance.new("UIListLayout", selectionScroller)
+selectionLayout.Padding = UDim.new(0,3)
+
+local structuralActions = {
+    {Name = "Idle", Key = "idle", Def = "Vampire"},
+    {Name = "Walk", Key = "walk", Def = "Vampire"},
+    {Name = "Run", Key = "run", Def = "Vampire"},
+    {Name = "Jump", Key = "jump", Def = "Wicked"},
+    {Name = "Fall", Key = "fall", Def = "Ninja"},
+    {Name = "Climb", Key = "climb", Def = "Adidas2"},
+    {Name = "Swim", Key = "swim", Def = "Adidas2"}
+}
+
+for _, action in ipairs(structuralActions) do
+    local f = Instance.new("Frame", animTab)
+    f.Size, f.BackgroundColor3 = UDim2.new(1,-4,0,34), BT_C
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0,5)
+    
+    local btn = Instance.new("TextButton", f)
+    btn.Size, btn.BackgroundTransparency, btn.Text, btn.TextColor3, btn.Font, btn.TextSize, btn.TextXAlignment = 
+        UDim2.new(1,0,1,0), 1, "  ⚙️ Set " .. action.Name .. " Animation: [" .. action.Def .. "]", TX_C, Enum.Font.SourceSansBold, 13, Enum.TextXAlignment.Left
+    
+    actionButtons[action.Key] = btn
+    
+    btn.Activated:Connect(function()
+        if currentEditingAction == action.Key and selectionPanel.Visible then
+            selectionPanel.Visible = false
+        else
+            currentEditingAction = action.Key
+            selectionPanel.Visible = true
+            selectionPanel.Parent = animTab
+        end
+    end)
+end
+
+for _, animName in ipairs(animList) do
+    local ab = Instance.new("TextButton", selectionScroller)
+    ab.Size, ab.BackgroundColor3, ab.Text, ab.TextColor3, ab.Font, ab.TextSize = UDim2.new(1,-4,0,26), BT_C, "🎭 " .. animName, TX_C, Enum.Font.SourceSansBold, 12
+    Instance.new("UICorner", ab).CornerRadius = UDim.new(0,4)
+    
+    ab.Activated:Connect(function()
+        if currentEditingAction then
+            if currentEditingAction == "idle" then
+                getgenv().HybridSettings.idle1 = animName
+                getgenv().HybridSettings.idle2 = animName
+                actionButtons["idle"].Text = "  ⚙️ Set Idle Animation: [" .. animName .. "]"
+            elseif currentEditingAction == "swim" then
+                getgenv().HybridSettings.swim = animName
+                getgenv().HybridSettings.swimidle = animName
+                actionButtons["swim"].Text = "  ⚙️ Set Swim Animation: [" .. animName .. "]"
+            else
+                getgenv().HybridSettings[currentEditingAction] = animName
+                for _, act in ipairs(structuralActions) do
+                    if act.Key == currentEditingAction then
+                        actionButtons[currentEditingAction].Text = "  ⚙️ Set " .. act.Name .. " Animation: [" .. animName .. "]"
+                    end
+                end
+            end
+            selectionPanel.Visible = false
+        end
+    end)
+end
+selectionScroller.CanvasSize = UDim2.new(0,0,0,selectionLayout.AbsoluteContentSize.Y + 10)
+
+local function runAnimations()
+    pcall(function()
+        loadstring(game:HttpGet("https://animationv3.sowonaha.workers.dev"))()
+    end)
+end
+
+local applyHybridBtn = Instance.new("TextButton", animTab)
+applyHybridBtn.Size, applyHybridBtn.BackgroundColor3, applyHybridBtn.Text, applyHybridBtn.TextColor3, applyHybridBtn.Font, applyHybridBtn.TextSize = 
+    UDim2.new(1,-4,0,36), Color3.fromRGB(0, 110, 255), "✔️ Apply Animations", TX_C, Enum.Font.SourceSansBold, 14
+Instance.new("UICorner", applyHybridBtn).CornerRadius = UDim.new(0,6)
+applyHybridBtn.Activated:Connect(runAnimations)
+
+local div = Instance.new("Frame", animTab) div.Size, div.BackgroundColor3 = UDim2.new(1,-4,0,2), Color3.fromRGB(40, 52, 84)
+
+local copyLbl = Instance.new("TextLabel", animTab)
+copyLbl.Size, copyLbl.BackgroundTransparency, copyLbl.Text, copyLbl.TextColor3, copyLbl.Font, copyLbl.TextSize = UDim2.new(1,-4,0,25), 1, "🥷 Avatar Copy System:", TX_C, Enum.Font.SourceSansBold, 13
+
+local lastUsername = nil
+local function apply_avatar(username)
+    local char = LP.Character or LP.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid", 10)
+    if not hum then return end
+    
+    local targetPlayer = nil
+    for _, p in ipairs(P:GetPlayers()) do
+        if p.Name:lower() == username:lower() or p.DisplayName:lower() == username:lower() then 
+            targetPlayer = p 
+            break 
+        end
+    end
+    
+    local desc
+    if targetPlayer and targetPlayer.Character then
+        local targetHum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if targetHum then 
+            pcall(function() desc = targetHum:GetAppliedDescription() end)
+        end
+    end
+    
+    if not desc then
+        local ok, userId = pcall(P.GetUserIdFromNameAsync, P, username)
+        if not ok then warn("Not Found User") return end
+        local ok2, d = pcall(P.GetHumanoidDescriptionFromUserId, P, userId)
+        if not ok2 then warn("Bad") return end
+        desc = d
+    end
+    
+    if desc then
+        for _, c in ipairs(char:GetChildren()) do
+            if c:IsA("Accessory") or c:IsA("Hat") or c:IsA("Shirt") or c:IsA("Pants") or c:IsA("ShirtGraphic") or c:IsA("CharacterMesh") then 
+                c:Destroy() 
+            end
+        end
+        
+        pcall(function() 
+            if hum.ApplyDescriptionClientServer then 
+                hum:ApplyDescriptionClientServer(desc) 
+            else 
+                hum:ApplyDescription(desc) 
+            end 
+        end)
+        
+        local bc = char:FindFirstChildOfClass("BodyColors") or Instance.new("BodyColors")
+        bc.Parent = char
+        bc.HeadColor3 = desc.HeadColor 
+        bc.TorsoColor3 = desc.TorsoColor 
+        bc.LeftArmColor3 = desc.LeftArmColor 
+        bc.RightArmColor3 = desc.RightArmColor 
+        bc.LeftLegColor3 = desc.LeftLegColor 
+        bc.RightLegColor3 = desc.RightLegColor
+    end
+end
+
+table.insert(conns, LP.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid", 10)
+    task.wait(0.65)
+    if lastUsername then 
+        apply_avatar(lastUsername) 
+        task.wait(0.2)
+    end
+    runAnimations()
+end))
+
+local nameInputFrame = Instance.new("Frame", animTab)
+nameInputFrame.Size, nameInputFrame.BackgroundColor3 = UDim2.new(1,-4,0,38), BT_C
+Instance.new("UICorner", nameInputFrame).CornerRadius = UDim.new(0,6)
+
+local nameBox = Instance.new("TextBox", nameInputFrame)
+nameBox.Size, nameBox.Position, nameBox.BackgroundColor3, nameBox.TextColor3, nameBox.Font, nameBox.TextSize, nameBox.Text, nameBox.PlaceholderText = 
+    UDim2.new(1,-20,0,26), UDim2.new(0,10,0,6), BG_C, TX_C, Enum.Font.SourceSans, 14, "Backpackergamer07", "Type username here..."
+
+local applyAvatarBtn = Instance.new("TextButton", animTab)
+applyAvatarBtn.Size, applyAvatarBtn.BackgroundColor3, applyAvatarBtn.Text, applyAvatarBtn.TextColor3, applyAvatarBtn.Font, applyAvatarBtn.TextSize = 
+    UDim2.new(1,-4,0,32), Color3.fromRGB(34, 139, 34), "🥷 Apply Avatar Copy Cloner", TX_C, Enum.Font.SourceSansBold, 13
+Instance.new("UICorner", applyAvatarBtn).CornerRadius = UDim.new(0,6)
+applyAvatarBtn.Activated:Connect(function()
+    if nameBox.Text ~= "" then
+        lastUsername = nameBox.Text
+        task.spawn(function() apply_avatar(nameBox.Text) end)
+    end
+end)
+
+nameBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed and nameBox.Text ~= "" then
+        lastUsername = nameBox.Text
+        task.spawn(function() apply_avatar(nameBox.Text) end)
+    end
+end)
+
+local listPanelFrame = Instance.new("Frame", animTab)
+listPanelFrame.Size, listPanelFrame.BackgroundColor3 = UDim2.new(1,-4,0,100), SB_C
+Instance.new("UICorner", listPanelFrame).CornerRadius = UDim.new(0,6)
+
+local listScroller = Instance.new("ScrollingFrame", listPanelFrame)
+listScroller.Size, listScroller.BackgroundTransparency, listScroller.ScrollBarThickness = UDim2.new(1,-8,1,-8), 1, 4
+listScroller.Position = UDim2.new(0,4,0,4)
+local scrollerLayout = Instance.new("UIListLayout", listScroller)
+scrollerLayout.Padding = UDim.new(0,3)
+
+local function updateServerPlayersList()
+    for _, child in pairs(listScroller:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    for _, pl in pairs(P:GetPlayers()) do
+        if pl ~= LP then
+            local b = Instance.new("TextButton", listScroller)
+            b.Size, b.BackgroundColor3, b.Text, b.TextColor3, b.Font, b.TextSize = UDim2.new(1,-4,0,28), BT_C, "👤 " .. pl.Name .. " (" .. pl.DisplayName .. ")", TX_C, Enum.Font.SourceSansBold, 13
+            Instance.new("UICorner", b).CornerRadius = UDim.new(0,4)
+            b.Activated:Connect(function()
+                nameBox.Text = pl.Name
+                lastUsername = pl.Name
+                task.spawn(function() apply_avatar(pl.Name) end)
+            end)
+        end
+    end
+    listScroller.CanvasSize = UDim2.new(0,0,0,scrollerLayout.AbsoluteContentSize.Y + 10)
+end
+
+updateServerPlayersList()
+table.insert(conns, P.PlayerAdded:Connect(updateServerPlayersList))
+table.insert(conns, P.PlayerRemoving:Connect(updateServerPlayersList))
+
+-- ==========================================
+-- UPDATED TORA TABS AUTOMATION CONFIG & INJECTION
+-- ==========================================
+local currentAutomationHubName = "GitHub Auto-Fetch"
+if getgenv().CustomToraAutomation and getgenv().CustomToraAutomation.Enabled then
+    currentAutomationHubName = getgenv().CustomToraAutomation.Name or "Custom Override Hub"
+end
+
+-- Top Identity Banner Label showing current automation source
+local toraIdentityBanner = Instance.new("TextLabel", toraTab)
+toraIdentityBanner.Size = UDim2.new(1, -4, 0, 22)
+toraIdentityBanner.BackgroundTransparency = 1
+toraIdentityBanner.Text = "⚙️ Automation Source: " .. currentAutomationHubName
+toraIdentityBanner.TextColor3 = NUM_C
+toraIdentityBanner.Font = Enum.Font.SourceSansItalic
+toraIdentityBanner.TextSize = 13
+toraIdentityBanner.TextXAlignment = Enum.TextXAlignment.Left
+
+local toraScripts = {}
+local HttpService = game:GetService("HttpService")
+
+local function fetchAllGitHubScripts()
+    local headers = { ["User-Agent"] = "RobloxStudio/1.0" }
+    local response = request({
+        Url = "https://api.github.com/repos/gumanba/Scripts/git/trees/main?recursive=1",
+        Method = "GET",
+        Headers = headers
+    })
+    
+    if response and response.StatusCode == 200 then
+        return HttpService:JSONDecode(response.Body)
+    else
+        error("API Failed: " .. tostring(response and response.StatusCode or "No Response"))
+    end
+end
+
+local success, data = pcall(fetchAllGitHubScripts)
+
+if success and data and data.tree then
+    for _, file in ipairs(data.tree) do
+        if file.type == "blob" then
+            local filePath = file.path
+            local displayName = filePath:match("^.+/(.+)$") or filePath
+            if not filePath:find("%.") or filePath:find("%.lua$") then
+                local cleanName = displayName:gsub("%.lua$", "")
+                table.insert(toraScripts, {cleanName, filePath})
+            end
+        end
+    end
+else
+    warn("GitHub API rate limited. Using fallback list.")
+    toraScripts = {
+        {"Paint and Seek", "PaintandSeek"},
+        {"Become A Brainrot", "BecomeABrainrot"},
+        {"Dig to Escape", "DigtoEscape"},
+        {"+1SpeedBridgeBuilding", "+1SpeedBridgeBuilding"},
+        {"PaintAndSEEK", "PaintAndSEEK"},
+        {"FightOthersForBrainrots", "FightOthersForBrainrots"},
+        {"MineaMountain", "MineaMountain"},
+        {"1MagicEvolution", "1MagicEvolution"},
+        {"PaintToHide", "PaintToHide"},
+        {"SpeedTraining", "SpeedTraining"},
+        {"1CrunchyButterEscape", "1CrunchyButterEscape"},
+        {"MorphUp", "MorphUp"},
+        {"1MuscletoPushBoulder", "1MuscletoPushBoulder"},
+        {"BEAFISHBAIT", "BEAFISHBAIT"},
+        {"RolltoDefend", "RolltoDefend"},
+        {"1RunforNEEDOH", "1RunforNEEDOH"},
+        {"DraintheLake", "DraintheLake"},
+        {"Chameleon", "Chameleon"}
+    }
+end
+
+table.sort(toraScripts, function(a, b)
+    return string.lower(a[1]) < string.lower(b[1])
+end)
+
+-- TORA TAB SEARCH BAR
+local toraSearch = Instance.new("TextBox", toraTab)
+toraSearch.Size = UDim2.new(1,-4,0,32)
+toraSearch.BackgroundColor3 = BG_C
+toraSearch.TextColor3 = TX_C
+toraSearch.PlaceholderText = "Search scripts within " .. currentAutomationHubName .. "..."
+toraSearch.Text = ""
+Instance.new("UICorner", toraSearch).CornerRadius = UDim.new(0,6)
+
+local toraButtons = {}
+local oldRowBtn = rowBtn
+local function toraRow(txt, p, cb)
+	local b = oldRowBtn(txt, p, cb)
+	table.insert(toraButtons, b)
+	return b
+end
+
+toraSearch:GetPropertyChangedSignal("Text"):Connect(function()
+	local q = string.lower(toraSearch.Text)
+	for _,btn in ipairs(toraButtons) do
+		btn.Visible = (q == "") or string.find(string.lower(btn.Text), q, 1, true) ~= nil
+	end
+end)
+
+for _,v in ipairs(toraScripts) do
+	toraRow("🌀 "..v[1], toraTab, function()
+		pcall(function()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/"..v[2]))()
+		end)
+	end)
+end
+
+-- MAIN HAX TAB
+toggleValueRow("⚡ Fly Engine", haxTab, 50,
+	function(v)
+		flying = v
+		if flying then
+			task.spawn(function()
+				while flying do
+					RS.Heartbeat:Wait()
+					pcall(function()
+						local r, h = getR(), getH()
+						if r and h then
+							local dir = h.MoveDirection * flyS
+							if h.Jump or UIS:IsKeyDown(Enum.KeyCode.Space) then 
+								dir = dir + Vector3.new(0, flyS, 0) 
+							end
+							r.Velocity = dir
+						end
+					end)
+				end
+			end)
+		end
+	end,
+	function(v) flyS = v end
+)
+
+table.insert(conns, UIS.JumpRequest:Connect(function() if infJ and getH() then getH():ChangeState(Enum.HumanoidStateType.Jumping) end end))
+toggleRow("Infinite Air Jumps", haxTab, function(v) infJ = v end)
+
+table.insert(conns, RS.Stepped:Connect(function() if noclip and LP.Character then for _, p in pairs(LP.Character:GetChildren()) do if p:IsA("BasePart") then p.CanCollide = false end end end end))
+toggleRow("Noclip Clipper", haxTab, function(v) noclip = v end)
+
+toggleRow("Freecam Override", haxTab, function(v)
+	fcam = v
+	local cam = workspace.CurrentCamera
+	if fcam then
+		cam.CameraType = Enum.CameraType.Scriptable
+		task.spawn(function()
+			while fcam do
+				RS.RenderStepped:Wait()
+				if UIS:IsKeyDown(Enum.KeyCode.W) then cam.CFrame *= CFrame.new(0,0,-2) end
+				if UIS:IsKeyDown(Enum.KeyCode.S) then cam.CFrame *= CFrame.new(0,0,2) end
+				if UIS:IsKeyDown(Enum.KeyCode.A) then cam.CFrame *= CFrame.new(-2,0,0) end
+				if UIS:IsKeyDown(Enum.KeyCode.D) then cam.CFrame *= CFrame.new(2,0,0) end
+			end
+		end)
+	else
+		cam.CameraType, cam.CameraSubject = Enum.CameraType.Custom, getH()
+	end
+end)
+
+toggleValueRow("🔭 Max Zoom", haxTab, 50000,
+	function(v) zoom = v LP.MaxCameraZoomDistance = zoom and 50000 or 400 end,
+	function(v) LP.MaxCameraZoomDistance = v end
+)
+
+toggleValueRow("🏃 WalkSpeed", haxTab, 90,
+	function(v) if getH() then getH().WalkSpeed = v and 90 or 16 end end,
+	function(v) if getH() then getH().WalkSpeed = v end end
+)
+
+toggleValueRow("🌍 Gravity", haxTab, 50,
+	function(v) workspace.Gravity = v and 50 or 196.2 end,
+	function(v) workspace.Gravity = v end
+)
+
+toggleValueRow("🦘 JumpPower", haxTab, 140,
+	function(v) if getH() then getH().JumpPower = v and 140 or 50 end end,
+	function(v) if getH() then getH().JumpPower = v end end
+)
+
+local function handleESP(v)
+	espEnabled = v
+	for _, pl in pairs(P:GetPlayers()) do
+		if pl.Character then
+			for _, child in pairs(pl.Character:GetDescendants()) do
+				if child:IsA("BoxHandleAdornment") and child.Name == "SmoothScriptESP" then
+					pcall(function() child:Destroy() end)
+				end
+			end
+		end
+	end
+	table.clear(espBoxes)
+
+	if not espEnabled then return end
+
+	task.spawn(function()
+		while espEnabled do
+			for pl, b in pairs(espBoxes) do
+				if not pl.Character or not pl.Character:FindFirstChild("HumanoidRootPart") or not b.Parent then
+					if b then pcall(function() b:Destroy() end) end
+					espBoxes[pl] = nil
+				end
+			end
+			for _, pl in pairs(P:GetPlayers()) do
+				if pl ~= LP and pl.Character and pl.Character:FindFirstChild("HumanoidRootPart") and not espBoxes[pl] then
+					pcall(function()
+						local b = Instance.new("BoxHandleAdornment")
+						b.Name = "SmoothScriptESP"
+						b.Size, b.AlwaysOnTop, b.ZIndex, b.Color3, b.Transparency, b.Adornee, b.Parent =
+							Vector3.new(4,5,4), true, 10, GLOW_C, 0.5, pl.Character.HumanoidRootPart, pl.Character.HumanoidRootPart
+						espBoxes[pl] = b
+					end)
+				end
+			end
+			task.wait(0.5)
+		end
+	end)
+end
+toggleRow("Active Box ESP", haxTab, handleESP)
+
+local tpToolObj = nil
+rowBtn("🧭 Give TP Tool (equip & click)", haxTab, function(b)
+	if tpToolObj then
+		tpToolObj:Destroy()
+		tpToolObj = nil
+		b.Text = "  🧭 Give TP Tool (equip & click)"
+		return
+	end
+	local tool = Instance.new("Tool")
+	tool.Name = "TP Tool"
+	tool.RequiresHandle = false
+	tool.ToolTip = "Click anywhere to teleport"
+	local activated = tool.Activated:Connect(function()
+		local m = LP:GetMouse()
+		if m and m.Hit and getR() then
+			getR().CFrame = CFrame.new(m.Hit.Position + Vector3.new(0, 3, 0))
+		end
+	end)
+	tool.Parent = LP.Backpack
+	tpToolObj = tool
+	b.Text = "  🧭 Remove TP Tool"
+	tool.AncestryChanged:Connect(function()
+		if not tool.Parent then
+			tpToolObj = nil
+			b.Text = "  🧭 Give TP Tool (equip & click)"
+		end
+	end)
+end)
+
+toggleRow("Dynamic Shiftlock", haxTab, function(v) sLockEnabled = v end)
+table.insert(conns, RS.RenderStepped:Connect(function() if sLockEnabled then UIS.MouseBehavior = Enum.MouseBehavior.LockCenter end end))
+
+-- TROLL TAB
+rowBtn("🤡 Fling troll", trollTab, function()
+	pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))() end)
+end)
+rowBtn("💀 Reset Self (Oof)", trollTab, function() if getH() then getH().Health = 0 end end)
+rowBtn("🧑 Become Headless (Local)", trollTab, function() local h = LP.Character and LP.Character:FindFirstChild("Head") if h then h.Transparency = (h.Transparency == 1) and 0 or 1 end end)
+rowBtn("👕 Strip Outfits & Assets (Local)", trollTab, function() if LP.Character then for _, v in pairs(LP.Character:GetChildren()) do if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("GraphicShirt") or v:IsA("Accessory") then v:Destroy() end end end end)
+toggleRow("🌪️ Physics Fling Loop", trollTab, function(state)
+	flingEnabled = state
+	if flingEnabled then
+		task.spawn(function()
+			while flingEnabled and task.wait() do
+				pcall(function() local r = getR() if r then r.Velocity, r.RotVelocity = Vector3.new(0,30000,0), Vector3.new(0,30000,0) end end)
+			end
+		end)
+	else
+		pcall(function() local r = getR() if r then r.Velocity, r.RotVelocity = Vector3.new(), Vector3.new() end end)
+	end
+end)
+
+makeDropdown("🪑 Select Player to HeadSit", trollTab, function(pl)
+	if sitConn then sitConn:Disconnect() end
+	sitConn = RS.Heartbeat:Connect(function()
+		pcall(function()
+			local h = getH()
+			if not h or h.Health <= 0 or UIS:IsKeyDown(Enum.KeyCode.Space) then
+				if sitConn then sitConn:Disconnect() sitConn = nil end
+				if h then h.Sit = false h.PlatformStand = false end
+				return
+			end
+			local r = getR()
+			local tr = pl.Character and pl.Character:FindFirstChild("Head")
+			h.Sit = true
+			h.PlatformStand = true
+			if r and tr then 
+				r.CFrame = tr.CFrame * CFrame.new(0, 1.2, 0) 
+				r.Velocity = Vector3.new(0,0,0) 
+			end
+		end)
+	end)
+end)
+
+-- TELEPORT TAB
+local function rebuildTPList()
+	for _, item in pairs(tpTab:GetChildren()) do if item:IsA("TextButton") or item:IsA("Frame") then item:Destroy() end end
+	for _, target in pairs(P:GetPlayers()) do if target ~= LP then
+		local row = Instance.new("Frame", tpTab) row.Size, row.BackgroundColor3 = UDim2.new(1,-4,0,50), BT_C Instance.new("UICorner", row).CornerRadius = UDim.new(0,6)
+		local lbl = Instance.new("TextLabel", row) lbl.Size, lbl.Position, lbl.Text, lbl.TextColor3, lbl.Font, lbl.TextSize, lbl.TextXAlignment, lbl.BackgroundTransparency = UDim2.new(0.4,0,1,0), UDim2.new(0,8,0,0), target.Name, TX_C, Enum.Font.SourceSansBold, 12, Enum.TextXAlignment.Left, 1
+		local function mBtn(t, x, w, cb) local b = Instance.new("TextButton", row) b.Size, b.Position, b.BackgroundColor3, b.Text, b.TextColor3, b.Font, b.TextSize = UDim2.new(0,w,0,24), UDim2.new(1,x,0,13), BG_C, t, TX_C, Enum.Font.SourceSansBold, 10 Instance.new("UICorner", b).CornerRadius = UDim.new(0,4) b.Activated:Connect(cb) return b end
+		mBtn("Goto", -160, 34, function() pcall(function() local r, tr = getR(), target.Character and target.Character:FindFirstChild("HumanoidRootPart") if r and tr then r.CFrame = tr.CFrame * CFrame.new(0,0,-3) end end) end)
+		mBtn("Void", -122, 34, function() pcall(function() local tr = target.Character and target.Character:FindFirstChild("HumanoidRootPart") if tr then tr.CFrame = CFrame.new(0,-999,0) end end) end)
+		mBtn("View", -84, 34, function() pcall(function() if target.Character and target.Character:FindFirstChildOfClass("Humanoid") and workspace.CurrentCamera then workspace.CurrentCamera.CameraSubject = target.Character:FindFirstChildOfClass("Humanoid") end end) end)
+		mBtn("Unview", -46, 42, function() pcall(function() if workspace.CurrentCamera and getH() then workspace.CurrentCamera.CameraSubject = getH() end end) end)
+	end end
+end
+table.insert(conns, P.PlayerAdded:Connect(rebuildTPList)) table.insert(conns, P.PlayerRemoving:Connect(rebuildTPList)) rebuildTPList()
+
+-- AIMBOT TAB
+toggleRow("Toggle Combat Aimbot", aimTab, function(v) aimEnabled = v end)
+toggleRow("Aimbot ESP Mirror", aimTab, handleESP)
+adaptCtrl("Aimbot Smoothing", {1,5,10,25}, 10, aimTab, function(v) aimSmooth = v end)
+toggleRow("Hard CFrame StrongLock", aimTab, function(v) strongLock = v end)
+toggleRow("Wall Check (LoS)", aimTab, function(v) wallCheck = v end)
+makeDropdown("🚫 Exclude Player", aimTab, function(pl) excludedPlayers[pl.Name] = true end)
+rowBtn("🦴 Target Part: Head/Body", aimTab, function(b) aimBone = (aimBone == "Head") and "HumanoidRootPart" or "Head" b.Text = "  🦴 Target Part: " .. aimBone end)
+
+-- INFINITE YIELD TAB
+rowBtn("💻 Execute Infinite Yield (Main)", infYieldTab, function()
+	pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end)
+end)
+rowBtn("🛠️ Run Yield Command Bar", infYieldTab, function()
+	pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() game:GetService("StarterGui"):SetCore("SendNotification", {Title="Smooth Script", Text="Infinite Yield Command bar executed!", Duration=3}) end)
+end)
+rowBtn("👻 Active Invisible Mode", infYieldTab, function()
+	pcall(function()
+		local ch = LP.Character if ch then
+			for _, v in pairs(ch:GetDescendants()) do
+				if v:IsA("BasePart") or v:IsA("Decal") then v.Transparency = 1 end
+			end
+		end
+	end)
+end)
+rowBtn("🗺️ Open Dex Explorer", infYieldTab, function()
+	pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/infinitiyield/DEX-Explorer/master/main.lua"))() end)
+end)
+rowBtn("🕶️ Enable Anti-Kick/Logger", infYieldTab, function()
+	pcall(function()
+		local mt = getrawmetatable(game) setreadonly(mt, false) local old = mt.__namecall
+		mt.__namecall = newcclosure(function(self, ...) local method = getnamecallmethod()
+			if method == "Kick" then return nil end return old(self, ...)
+		end)
+	end)
+end)
+
+-- COOL TROLL TAB
+rowBtn("🔥 Copy Equipped Tool Loop", coolTrollTab, function()
+	pcall(function()
+		local char = LP.Character
+		local tool = char and char:FindFirstChildOfClass("Tool")
+		if not tool then
+			tool = LP.Backpack:FindFirstChildOfClass("Tool")
+		end
+		if tool then
+			for i = 1, 15 do 
+				local c = tool:Clone() 
+				c.Parent = LP.Backpack 
+			end
+		end
+	end)
+end)
+
+rowBtn("🎵 Play Spam Jumpscare Sounds", coolTrollTab, function()
+	pcall(function()
+		for i = 1, 6 do
+			local s = Instance.new("Sound")
+			s.SoundId = "rbxassetid://5424540457"
+			s.Volume = 4
+			s.Parent = workspace
+			s:Play()
+			game:GetService("Debris"):AddItem(s, 2.5)
+		end
+	end)
+end)
+
+toggleRow("🔄 Infinite Spin Loop", coolTrollTab, function(state)
+	_G.Spinning = state
+	if _G.Spinning then
+		task.spawn(function()
+			while _G.Spinning and task.wait() do
+				local r = getR()
+				if r then
+					r.CFrame = r.CFrame * CFrame.Angles(0, math.rad(35), 0)
+				end
+			end
+		end)
+	end
+end)
+
+rowBtn("🔊 Play Loud Boom Effect", coolTrollTab, function()
+	pcall(function()
+		local s = Instance.new("Sound")
+		s.SoundId = "rbxassetid://1222224751"
+		s.Volume = 8
+		s.Parent = workspace
+		s:Play()
+		game:GetService("Debris"):AddItem(s, 3)
+	end)
+end)
+
+rowBtn("🎈 Glitch Character Joints", coolTrollTab, function()
+	pcall(function()
+		local h = getH()
+		if h then
+			h.PlatformStand = true
+			task.wait(0.3)
+			h.PlatformStand = false
+		end
+	end)
+end)
+
+local function getClosestPlayer()
+	local closest, dist = nil, math.huge local cam = workspace.CurrentCamera if not cam then return end
+	for _, pl in pairs(P:GetPlayers()) do
+		if pl ~= LP and pl.Character and not excludedPlayers[pl.Name] then
+			local part = pl.Character:FindFirstChild(aimBone)
+			if part then
+				local pos, onScreen = cam:WorldToViewportPoint(part.Position)
+				if onScreen then
+					if wallCheck then
+						local rParams = RaycastParams.new() rParams.FilterType = Enum.RaycastFilterType.Exclude rParams.FilterDescendantsInstances = {LP.Character, cam}
+						local res = workspace:Raycast(cam.CFrame.Position, (part.Position - cam.CFrame.Position).Unit * 500, rParams)
+						if res and res.Instance and not res.Instance:IsDescendantOf(pl.Character) then onScreen = false end
+					end
+					if onScreen then
+						local mousePos = UIS:GetMouseLocation() local d = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+						if d < dist then dist, closest = d, part end
+					end
+				end
+			end
+		end
+	end
+	return closest
+end
+
+table.insert(conns, RS.RenderStepped:Connect(function()
+	if aimEnabled then
+		local target = getClosestPlayer()
+		if target and workspace.CurrentCamera then
+			if strongLock then
+				workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, target.Position)
+			else
+				local currentCF = workspace.CurrentCamera.CFrame
+				local targetCF = CFrame.new(currentCF.Position, target.Position)
+				workspace.CurrentCamera.CFrame = currentCF:Lerp(targetCF, 1 / aimSmooth)
+			end
+		end
+	end
+end))
