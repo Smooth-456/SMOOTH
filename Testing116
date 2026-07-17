@@ -526,72 +526,96 @@ table.insert(conns, P.PlayerAdded:Connect(updateServerPlayersList))
 table.insert(conns, P.PlayerRemoving:Connect(updateServerPlayersList))
 -- ==========================================
 
--- TORA TABS
-local toraScripts = {}
+-- ==========================================
+-- UPDATED: TORA TAB MULTI-REPO SORTING
+-- ==========================================
+local smoothScripts = {}
+local gumanbaScripts = {}
 local HttpService = game:GetService("HttpService")
 
-local function fetchAllGitHubScripts()
+local function fetchRepoTree(repoOwner, repoName)
     local headers = { ["User-Agent"] = "RobloxStudio/1.0" }
     local response = request({
-        Url = "https://api.github.com/repos/gumanba/Scripts/git/trees/main?recursive=1",
+        Url = "https://api.github.com/repos/" .. repoOwner .. "/" .. repoName .. "/git/trees/main?recursive=1",
         Method = "GET",
         Headers = headers
     })
     
     if response and response.StatusCode == 200 then
         return HttpService:JSONDecode(response.Body)
-    else
-        error("API Failed: " .. tostring(response and response.StatusCode or "No Response"))
     end
+    return nil
 end
 
-local success, data = pcall(fetchAllGitHubScripts)
-
-if success and data and data.tree then
-    for _, file in ipairs(data.tree) do
+-- 1. Fetch & Process Smooth-456 repository
+local smoothSuccess, smoothData = pcall(function() return fetchRepoTree("Smooth-456", "Scripts") end)
+if smoothSuccess and smoothData and smoothData.tree then
+    for _, file in ipairs(smoothData.tree) do
         if file.type == "blob" then
             local filePath = file.path
             local displayName = filePath:match("^.+/(.+)$") or filePath
             if not filePath:find("%.") or filePath:find("%.lua$") then
                 local cleanName = displayName:gsub("%.lua$", "")
-                table.insert(toraScripts, {cleanName, filePath})
+                -- Append repository suffix in the name
+                table.insert(smoothScripts, {cleanName .. " (Smooth-456)", "Smooth-456", filePath})
             end
         end
     end
-else
-    warn("GitHub API rate limited. Using fallback list.")
-    toraScripts = {
-        {"Paint and Seek", "PaintandSeek"},
-        {"Become A Brainrot", "BecomeABrainrot"},
-        {"Dig to Escape", "DigtoEscape"},
-        {"+1SpeedBridgeBuilding", "+1SpeedBridgeBuilding"},
-        {"PaintAndSEEK", "PaintAndSEEK"},
-        {"FightOthersForBrainrots", "FightOthersForBrainrots"},
-        {"MineaMountain", "MineaMountain"},
-        {"1MagicEvolution", "1MagicEvolution"},
-        {"PaintToHide", "PaintToHide"},
-        {"SpeedTraining", "SpeedTraining"},
-        {"1CrunchyButterEscape", "1CrunchyButterEscape"},
-        {"MorphUp", "MorphUp"},
-        {"1MuscletoPushBoulder", "1MuscletoPushBoulder"},
-        {"BEAFISHBAIT", "BEAFISHBAIT"},
-        {"RolltoDefend", "RolltoDefend"},
-        {"1RunforNEEDOH", "1RunforNEEDOH"},
-        {"DraintheLake", "DraintheLake"},
-        {"Chameleon", "Chameleon"}
-    }
 end
 
-table.sort(toraScripts, function(a, b)
+-- 2. Fetch & Process gumanba repository
+local gumanbaSuccess, gumanbaData = pcall(function() return fetchRepoTree("gumanba", "Scripts") end)
+if gumanbaSuccess and gumanbaData and gumanbaData.tree then
+    for _, file in ipairs(gumanbaData.tree) do
+        if file.type == "blob" then
+            local filePath = file.path
+            local displayName = filePath:match("^.+/(.+)$") or filePath
+            if not filePath:find("%.") or filePath:find("%.lua$") then
+                local cleanName = displayName:gsub("%.lua$", "")
+                -- Append repository suffix in the name
+                table.insert(gumanbaScripts, {cleanName .. " (Gumanba)", "gumanba", filePath})
+            end
+        end
+    end
+end
+
+-- Fallback defaults array grouped and tagged properly if API limits hit
+if #smoothScripts == 0 and #gumanbaScripts == 0 then
+    warn("GitHub API limit reached. Loading embedded fallback list.")
+    -- Default fallbacks tagged as Gumanba for this list
+    local fallbacks = {
+        "Paint and Seek", "Become A Brainrot", "Dig to Escape", "+1SpeedBridgeBuilding", 
+        "PaintAndSEEK", "FightOthersForBrainrots", "MineaMountain", "1MagicEvolution", 
+        "PaintToHide", "SpeedTraining", "1CrunchyButterEscape", "MorphUp", 
+        "1MuscletoPushBoulder", "BEAFISHBAIT", "RolltoDefend", "1RunforNEEDOH", 
+        "DraintheLake", "Chameleon"
+    }
+    for _, name in ipairs(fallbacks) do
+        table.insert(gumanbaScripts, {name .. " (Gumanba)", "gumanba", name})
+    end
+end
+
+-- Sort Smooth-456 scripts alphabetically (A-Z)
+table.sort(smoothScripts, function(a, b)
     return string.lower(a[1]) < string.lower(b[1])
 end)
+
+-- Sort gumanba scripts alphabetically (A-Z)
+table.sort(gumanbaScripts, function(a, b)
+    return string.lower(a[1]) < string.lower(b[1])
+end)
+
+-- Combine them: Smooth-456 scripts list completely first, then gumanba scripts
+local toraScripts = {}
+for _, v in ipairs(smoothScripts) do table.insert(toraScripts, v) end
+for _, v in ipairs(gumanbaScripts) do table.insert(toraScripts, v) end
 
 -- TORA TAB SEARCH BAR
 local toraSearch = Instance.new("TextBox", toraTab)
 toraSearch.Size = UDim2.new(1,-4,0,32)
 toraSearch.BackgroundColor3 = BG_C
 toraSearch.TextColor3 = TX_C
-toraSearch.PlaceholderText = "Search Tora scripts..."
+toraSearch.PlaceholderText = "Search Tora Repositories..."
 toraSearch.Text = ""
 Instance.new("UICorner", toraSearch).CornerRadius = UDim.new(0,6)
 
@@ -610,10 +634,11 @@ toraSearch:GetPropertyChangedSignal("Text"):Connect(function()
 	end
 end)
 
+-- Render buttons (Smooth scripts appear first A-Z, then Gumanba scripts A-Z)
 for _,v in ipairs(toraScripts) do
-	toraRow("🌀 "..v[1], toraTab, function()
+	toraRow("🌀 " .. v[1], toraTab, function()
 		pcall(function()
-			loadstring(game:HttpGet("https://raw.githubusercontent.com/gumanba/Scripts/main/"..v[2]))()
+			loadstring(game:HttpGet("https://raw.githubusercontent.com/" .. v[2] .. "/Scripts/main/" .. v[3]))()
 		end)
 	end)
 end
